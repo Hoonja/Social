@@ -3,7 +3,7 @@
 // angular.module is a global place for creating, registering and retrieving Angular modules
 // 'starter' is the name of this angular module example (also set in a <body> attribute in index.html)
 // the 2nd parameter is an array of 'requires'
-angular.module('starter', ['ionic'])
+angular.module('starter', ['ionic', 'ngCordovaOauth'])
 
 .run(function($ionicPlatform) {
   $ionicPlatform.ready(function() {
@@ -29,7 +29,7 @@ angular.module('starter', ['ionic'])
       FB.getLoginStatus(function(response) {
         console.log('FB.getLoginStatus', response);
         if (response.status === 'connected') {
-          deferred.resolve();
+          deferred.resolve(response.authResponse.accessToken);
         } else if (response.status === 'not_authorized') {
           deferred.reject('not_authorized');
         } else {
@@ -47,6 +47,7 @@ angular.module('starter', ['ionic'])
         if (response.authResponse) {
           console.log('Welcome!  Fetching your information.... ');
           FB.api('/me', function(response) {
+            console.log('login response', response);
             console.log('Good to see you, ' + response.name + '.');
             deferred.resolve();
            });
@@ -68,27 +69,49 @@ angular.module('starter', ['ionic'])
     }
   };
 }])
-.controller('main', ['$scope', 'fbService', function($scope, fbService) {
+.controller('main', ['$scope', '$http', 'fbService', function($scope, $http, fbService) {
   console.log('controller');
   $scope.isLoggedIn = false;
 
   checkLoginState = function() {
     fbService.getLoginStatus()
-    .then(function() {
+    .then(function(accessToken) {
       $scope.isLoggedIn = true;
+      getUserInfo(accessToken);
     }, function(err) {
       $scope.isLoggedIn = false;
     })
   };
 
-  setTimeout(function() {
-    checkLoginState();
-  }, 1000);
+  getUserInfo = function(accessToken) {
+    $http.get(
+      "https://graph.facebook.com/v2.5/me",
+      {
+        params: {
+          access_token: accessToken,
+          fields: "name,gender,location,picture",
+          format: "json"
+        }
+      }
+    ).then(function (result) {
+      // var name = result.data.name;
+      // var gender = result.data.gender;
+      // var picture = result.data.picture;
+      console.log(result);
+    }, function(error) {
+      alert("Error: " + error);
+    });
+  }
+
+  // setTimeout(function() {
+  //   checkLoginState();
+  // }, 1000);
 
   $scope.login = function() {
     fbService.login()
     .then(function() {
-      $scope.isLoggedIn = true;
+      // $scope.isLoggedIn = true;
+      checkLoginState();
     }, function() {
       $scope.isLoggedIn = false;
     });
@@ -100,4 +123,34 @@ angular.module('starter', ['ionic'])
       $scope.isLoggedIn = false;
     });
   };
+
+  $scope.loginToKakao = function() {
+    console.log('Login to Kakao');
+    $http.get(
+      "/kakao/oauth/authorize?client_id=cb7479018234a9feda2d82f6bbdd1682&redirect_uri=oauth&response_type=code"
+    )
+    .then(function(res) {
+      console.log('Kakao res', res);
+    }, function(err) {
+      console.error('Kakao res err', err);
+    });
+  }
+
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '1765072327115352',
+      xfbml      : true,
+      version    : 'v2.7'
+    });
+    console.log('FB.init has been invoked.');
+    checkLoginState();
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
 }]);
