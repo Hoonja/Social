@@ -23,35 +23,20 @@
     <script src="js/app.js"></script>
   </head>
   <body ng-app="starter">
-    <!-- <script>
-      window.fbAsyncInit = function() {
-        FB.init({
-          appId      : '1765072327115352',
-          xfbml      : true,
-          version    : 'v2.7'
-        });
-        console.log('FB.init has been invoked.');
-      };
-
-      (function(d, s, id){
-         var js, fjs = d.getElementsByTagName(s)[0];
-         if (d.getElementById(id)) {return;}
-         js = d.createElement(s); js.id = id;
-         js.src = "//connect.facebook.net/en_US/sdk.js";
-         fjs.parentNode.insertBefore(js, fjs);
-       }(document, 'script', 'facebook-jssdk'));
-    </script> -->
-
     <ion-pane>
       <ion-header-bar class="bar-stable">
-        <h1 class="title">Ionic Blank Starter</h1>
+        <h1 class="title">Social Login Test</h1>
       </ion-header-bar>
       <ion-content ng-controller="main">
-        <button class="button button-full button-positive" ng-click="login()" ng-show="!isLoggedIn">Facebook Login</button>
-        <button class="button button-full button-assertive" ng-click="logout()" ng-show="isLoggedIn">Facebook Logout</button>
+        <button class="button button-full button-positive" ng-click="loginFB()" ng-show="!isFBLoggedIn">Facebook Login</button>
+        <button class="button button-full button-assertive" ng-click="logoutFB()" ng-show="isFBLoggedIn">Facebook Logout</button>
+        <button class="button button-full button-positive" ng-click="loginFSquare()" ng-show="!isFSquareLoggedIn">FourSquare Login</button>
+        <button class="button button-full button-assertive" ng-click="logoutFSquare()" ng-show="isFSquareLoggedIn">FourSquare Logout</button>
+        <button class="button button-full button-positive" ng-click="loginGoogle()" ng-show="!isGoogleLoggedIn">Google Login</button>
+        <button class="button button-full button-assertive" ng-click="logoutGoogle()" ng-show="isGoogleLoggedIn">Google Logout</button>
         <div class="row">
           <div class="col" style="text-align:center">
-            <a href="#" ng-click="loginToKakao()">
+            <a href="#" ng-click="loginKakao()">
               <img src="img/buttons/kakao_account_login_btn_medium_narrow.png">
             </a>
           </div>

@@ -69,88 +69,167 @@ angular.module('starter', ['ionic', 'ngCordovaOauth'])
     }
   };
 }])
-.controller('main', ['$scope', '$http', 'fbService', function($scope, $http, fbService) {
-  console.log('controller');
-  $scope.isLoggedIn = false;
-
-  checkLoginState = function() {
-    fbService.getLoginStatus()
-    .then(function(accessToken) {
-      $scope.isLoggedIn = true;
-      getUserInfo(accessToken);
-    }, function(err) {
-      $scope.isLoggedIn = false;
-    })
-  };
-
-  getUserInfo = function(accessToken) {
-    $http.get(
-      "https://graph.facebook.com/v2.5/me",
-      {
-        params: {
-          access_token: accessToken,
-          fields: "name,gender,location,picture",
-          format: "json"
+.factory('oauthKakao', ['$q', '$http', '$cordovaOauthUtility', function($q, $http, $cordovaOauthUtility) {
+  return {
+    signin : function(clientId, appScope, options) {
+      var deferred = $q.defer();
+      if(window.cordova) {
+        if($cordovaOauthUtility.isInAppBrowserInstalled()) {
+          var redirect_uri = 'http://localhost/callback';
+          if(options !== undefined) {
+            if(options.hasOwnProperty('redirect_uri')) {
+              redirect_uri = options.redirect_uri;
+            }
+          }
+          var browserRef = window.cordova.InAppBrowser.open('https://kauth.kakao.com/oauth/authorize?client_id=' + clientId + '&redirect_uri=' + redirect_uri + '&response_type=code', '_blank', 'location=no,clearsessioncache=yes,clearcache=yes');
+          browserRef.addEventListener('loadstart', function(event) {
+            if((event.url).indexOf(redirect_uri) === 0) {
+              console.log('oauthKakao loadstart', event);
+              browserRef.removeEventListener('exit',function(event){});
+              //browserRef.close();
+              var responseParameters = (event.url).split('?')[1].split('&');
+              var parameterMap = [];
+              for(var i = 0; i < responseParameters.length; i++) {
+                parameterMap[responseParameters[i].split('=')[0]] = responseParameters[i].split('=')[1];
+              }
+              if(parameterMap.code !== undefined && parameterMap.code !== null) {
+                $http({
+                  method: 'POST',
+                  url: 'https://kauth.kakao.com/oauth/token',
+                  params: {
+                    grant_type: 'authorization_code',
+                    client_id: clientId,
+                    redirect_uri: redirect_uri,
+                    code: parameterMap.code
+                  }
+                })
+                .then(function(response) {
+                  console.log('oauthKakao token response', response);
+                  deferred.resolve({ access_token: response.data.access_token, token_type: response.data.token_type, expires_in: response.data.expires_in, refresh_token: response.data.refresh_token });
+                }, function(err) {
+                  console.error('oauthKakao token error', err);
+                  deferred.reject('Problem in getting token.');
+                })
+                .finally(function() {
+                  browserRef.close();
+                });
+              } else {
+                deferred.reject('Problem authenticating');
+              }
+            }
+          });
+          browserRef.addEventListener('exit', function(event) {
+            deferred.reject('The sign in flow was canceled');
+          });
+        } else {
+          deferred.reject('Could not find InAppBrowser plugin');
         }
+      } else {
+        deferred.reject('Cannot authenticate via a web browser');
       }
-    ).then(function (result) {
-      // var name = result.data.name;
-      // var gender = result.data.gender;
-      // var picture = result.data.picture;
-      console.log(result);
-    }, function(error) {
-      alert("Error: " + error);
-    });
+      return deferred.promise;
+    }
   }
+}])
+.controller('main', ['$scope', '$http', '$cordovaOauth', 'oauthKakao', function($scope, $http, $cordovaOauth, oauthKakao) {
+  $scope.isFBLoggedIn = false;
+  $scope.isFSquareLoggedIn = false;
+  $scope.isGoogleLoggedIn = false;
+  $scope.isKakaoLoggedIn = false;
 
-  // setTimeout(function() {
-  //   checkLoginState();
-  // }, 1000);
-
-  $scope.login = function() {
-    fbService.login()
-    .then(function() {
-      // $scope.isLoggedIn = true;
-      checkLoginState();
-    }, function() {
-      $scope.isLoggedIn = false;
-    });
-  };
-
-  $scope.logout = function() {
-    fbService.logout()
-    .then(function() {
-      $scope.isLoggedIn = false;
-    });
-  };
-
-  $scope.loginToKakao = function() {
-    console.log('Login to Kakao');
-    $http.get(
-      "/kakao/oauth/authorize?client_id=cb7479018234a9feda2d82f6bbdd1682&redirect_uri=oauth&response_type=code"
-    )
-    .then(function(res) {
-      console.log('Kakao res', res);
+  $scope.loginFB = function() {
+    $cordovaOauth.facebook('1765072327115352', ['public_profile', 'email'])
+    .then(function(result) {
+      console.log('FB result', result);
+      $http.get(
+        'https://graph.facebook.com/v2.7/me',
+        {
+          params: {
+            access_token: result.access_token,
+            fields: 'id, name, first_name, last_name, age_range, link, gender, locale, picture, timezone, updated_time, verified, email',
+            format: 'json'
+          }
+        }
+      )
+      .then(function (result) {
+        console.log('FB me result', result);
+        $scope.isFBLoggedIn = true;
+      }, function(err) {
+        console.error('FB me error', err);
+        $scope.isFBLoggedIn = false;
+      });
     }, function(err) {
-      console.error('Kakao res err', err);
+      console.error('FB error', err);
+      $scope.isFBLoggedIn = false;
+    });
+  };
+
+  $scope.logoutFB = function() {
+
+  };
+
+  $scope.loginFSquare = function() {
+    $cordovaOauth.foursquare('QEA4FRXVQNHKUQYFZ3IZEU0EI0FDR0MCZL0HEZKW11HUNCTW')
+      .then(function(result) {
+        console.log('FSquare result', result);
+        $scope.isFSquareLoggedIn = true;
+      }, function(err) {
+        console.error('FSquare error', err);
+        $scope.isFSquareLoggedIn = false;
+      });
+  }
+
+  $scope.logoutFSquare = function() {
+
+  }
+
+  $scope.loginGoogle = function() {
+    $cordovaOauth.google('874932627400-nq8qrguk2uof410o4sbv0hob82r9cr6s.apps.googleusercontent.com', ['https://www.googleapis.com/auth/userinfo.profile'])
+    .then(function(result) {
+      console.log('Google result', result);
+      $http.get('https://www.googleapis.com/userinfo/v2/me',
+      {
+        headers: {
+          Authorization: result.token_type + ' ' + result.access_token
+        }
+      })
+      .then(function(result) {
+        console.log('Google me result', result);
+        $scope.isGoogleLoggedIn = true;
+      }, function(err) {
+        console.error('Google me error', err);
+        $scope.isGoogleLoggedIn = false;
+      });
+    }, function(err) {
+      console.error('Google error', err);
+      $scope.isGoogleLoggedIn = false;
     });
   }
 
-  window.fbAsyncInit = function() {
-    FB.init({
-      appId      : '1765072327115352',
-      xfbml      : true,
-      version    : 'v2.7'
-    });
-    console.log('FB.init has been invoked.');
-    checkLoginState();
-  };
+  $scope.logoutGoogle = function() {
 
-  (function(d, s, id){
-     var js, fjs = d.getElementsByTagName(s)[0];
-     if (d.getElementById(id)) {return;}
-     js = d.createElement(s); js.id = id;
-     js.src = "//connect.facebook.net/en_US/sdk.js";
-     fjs.parentNode.insertBefore(js, fjs);
-   }(document, 'script', 'facebook-jssdk'));
+  }
+
+  $scope.loginKakao = function() {
+    oauthKakao.signin('cb7479018234a9feda2d82f6bbdd1682')
+    .then(function(result) {
+      console.log('loginKakao result', result);
+      $http.get('https://kapi.kakao.com/v1/user/me',
+      {
+        headers: {
+          Authorization: result.token_type + ' ' + result.access_token
+        }
+      })
+      .then(function(result) {
+        console.log('Kakao me result', result);
+        $scope.isKakaoLoggedIn = true;
+      }, function(err) {
+        console.error('Kakao me error', err);
+        $scope.isKakaoLoggedIn = false;
+      });
+    }, function(err) {
+      console.error('loginKakao error', err);
+      $scope.isKakaoLoggedIn = false;
+    });
+  }
 }]);
